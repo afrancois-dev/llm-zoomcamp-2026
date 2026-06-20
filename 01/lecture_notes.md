@@ -62,3 +62,59 @@ For larger production systems, use the same pattern with a different backend:
 - Weaviate (vector database)
 
 # agent
+
+Before we didn't deal with an user making typos, unsual ways to ask questions, need information from two different searches
+
+Instead of routing the user question straight to search, we can hand control to the LLM and let it drive.
+The LLM is in charge now, and it can:
+- fix typos
+- search again with different terms
+- ask the user a clarifying question
+
+# function calling
+- Instead of running search ourselves, we give the LLM a search tool. It decides when to call it and what to search for.
+If there is a typo (cf. https://github.com/DataTalksClub/llm-zoomcamp/blob/main/01-agentic-rag/lessons/13-function-calling.md)
+
+The difference is about who makes the decisions:
+- With RAG, the developer decides. We fix the steps up front, so search always runs once with the exact user query.
+- With an agent, the LLM decides. It chooses which actions to take and when to stop.
+
+:info: NB: LLMs are stateless between API calls. That's why we need to send the chat history as input
+
+Also about the search_tool : 
+- The model doesn't see our Python code, only a schema describing what the function does and what arguments it takes.
+- LLMs are language agnostic. At the end we're just making an HTTP call, so we describe the tool in JSON rather than in Python. The same schema would work from TypeScript or Java.
+```
+search_tool = {
+    "type": "function",
+    "name": "search",
+    "description": "Search the FAQ database for entries matching the given query.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Search query text to look up in the course FAQ."
+            }
+        },
+        "required": ["query"],
+        "additionalProperties": False
+    }
+}
+```
+
+# agentic loop
+- Manual, single-turn function calling breaks down when an LLM needs to perform multiple or sequential searches to find an answer.
+- To solve this, an agentic loop uses a while loop that keeps executing tools and feeding the results back to the model until no more function calls are requested.
+- An agent consists of three core components: developer instructions (the role/behavior), tools (the executable functions), and memory (the conversation and execution history).
+- System behavior, scope, and guardrails—such as forcing multiple searches or blocking off-topic questions—are primarily controlled by refining the developer instructions.
+- This basic code pattern forms the underlying foundation of all major agent frameworks, including LangChain, PydanticAI, and the OpenAI Agents SDK.
+
+# frameworks
+- ToyAIKit is a minimal, educational library that wraps repetitive handwritten agent loops into a clean framework (and simple to understand)
+- Automated schema generation: instead of manually writing JSON schemas, the library automatically derives them from a Python function's docstrings and type hints, mirroring the behavior of production frameworks like LangChain or PydanticAI. e.g "function": {"arguments": '{"query": "Ollama locally"}', "name": 'search'}
+- By setting up a runner with tools, prompts, and a chat interface, ToyAIKit manages the while True loop, executes function calls, and handles multi-turn conversation memory seamlessly.
+- The framework automatically tracks message history, token usage, and overall costs, sparing ux from calculating these metrics by hand during complex, multi-turn agent interactions.
+
+# other frameworks
+- https://github.com/DataTalksClub/llm-zoomcamp/blob/main/01-agentic-rag/lessons/16-other-frameworks.md
